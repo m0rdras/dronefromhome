@@ -1,0 +1,17 @@
+{
+    "name": "dronefromhome",
+    "description": "AR.Drone server",
+    "version": "0.0.1",
+    "author": "Stefan Kirsch <stefan.kirsch@tngtech.com>",
+    "contributors": [
+        {
+            "name": "Christoph Stock",
+            "email": "christoph.stock@tngtech.com"
+        }
+    ],
+    "dependencies": {
+        "express": "3.x.x",
+        "ar-drone": "git://github.com/felixge/node-ar-drone.git#master"
+    },
+    "engine": "node >= 0.8.x"
+}

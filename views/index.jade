@@ -74,15 +74,15 @@ block append footer
                                         url: imageUrl,
                                         success: function (data) {
                                             displayImage(data.base64image);
-                                            setTimeout(loadImage, 100);
+                                            setTimeout(loadImage, 500);
                                         },
                                         error: function (xhr) {
-                                            setTimeout(loadImage, 100);
+                                            setTimeout(loadImage, 500);
                                         }
                                     });
                 };
 
-                setTimeout(loadImage, 1000);
+                setTimeout(loadImage, 500);
 
                 function fullscreenChange() {
                   if (document.webkitFullscreenElement === elem ||

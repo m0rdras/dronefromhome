@@ -13,9 +13,18 @@ var app = module.exports = express(),
 
 var PORT = 8088;
 
+var CONTROL_TIME = 10;
+
 var pngStream;
 
 var currentImage = '';
+
+var control = {
+    x: 0,
+    y: 0,
+    z: 0,
+    rot: 0
+};
 
 app.configure(function () {
     app.set('views', __dirname + '/views');
@@ -102,6 +111,7 @@ io.sockets.on('connection', function (socket) {
         } else {
             client.counterClockwise(0.5);
         }
+        control.rot = CONTROL_TIME;
     });
     socket.on('mouseY', function (data) {
         console.log('mouse y: ' + data);
@@ -110,6 +120,7 @@ io.sockets.on('connection', function (socket) {
         } else {
             client.down(0.5);
         }
+        control.z = CONTROL_TIME;
     });
 });
 
@@ -128,3 +139,19 @@ pngStream.on('data', function (data) {
 
 
 console.log("Express server listening on port %s in %s mode", PORT, app.settings.env);
+
+//setInterval(function () {
+//    if (control.rot > 1) {
+//        control.rot -= 1;
+//    } else if (control.rot === 1) {
+//        control.rot = 0;
+//        client.stop();
+//    }
+//
+//    if (control.x > 1) {
+//        control.x -= 1;
+//    } else if (control.x === 1) {
+//        control.x = 0;
+//        client.stop();
+//    }
+//}, 100);

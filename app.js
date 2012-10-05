@@ -39,25 +39,15 @@ app.configure('production', function () {
 
 
 function sendStream(req, res) {
-    var filePath = path.join(__dirname, 'demo.webm'),
-        stat = fs.statSync(filePath),
-        readStream;
+    var pngStream = client.createPngStream();
 
-    console.log('streaming ' + filePath + ' size: ' + stat.size);
+    pngStream.pause = function () {};
+    pngStream.destroy = function () {};
 
-    res.set({
-        'Content-Type': 'video/webm',
-        'Content-Length': stat.size
-    });
-
-    readStream = fs.createReadStream(filePath);
-    readStream.on('data', function (data) {
-        res.write(data);
-    });
-
-    readStream.on('end', function () {
-        console.log('input stream finished');
-        res.end();
+    pngStream.once('data', function (data) {
+        var imgdata = data.toString('base64');
+        console.log('sending image');
+        res.send({ base64image: imgdata });
     });
 }
 
@@ -78,28 +68,40 @@ io.sockets.on('connection', function (socket) {
       console.log(data);
       if (data == 87 ) {
         console.log("w pushed");
-        // forward
+        client.front(0.5);
       }
       if (data == 83 ) {
         console.log("s pushed");
-        // backwards
+        client.back(0.5);
       }
       if (data == 65 ) {
         console.log("a pushed");
-        // left
+        client.left(0.5);
       }
       if (data == 68 ) {
         console.log("d pushed");
-        // right
+        client.right(0.5);
       }
       if (data == 32 ) {
         console.log("SPACE pushed");
-        // stop
+        client.land();
       }
       if (data == 16 ) {
         console.log("SHIFT pushed");
-        // start
+        client.takeoff();
       }
+      if (data == 67 ) {
+          console.log("c pushed");
+          client.stop();
+      }
+        if (data == 81) {
+            console.log("q pushed");
+            client.up(0.5);
+        }
+        if (data == 91) {
+            console.log("e pushed");
+            client.down(0.5);
+        }
     });
 });
 

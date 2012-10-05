@@ -33,6 +33,12 @@ app.configure('production', function () {
 
 
 
+
+app.get('/', function (req, res) {
+    res.render('index');
+});
+
+
 var server = app.listen(PORT);
 
 console.log("Express server listening on port %s in %s mode", PORT, app.settings.env);

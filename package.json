@@ -11,7 +11,11 @@
     ],
     "dependencies": {
         "express": "3.x.x",
-        "ar-drone": "git://github.com/felixge/node-ar-drone.git#master"
+        "ar-drone": "git://github.com/felixge/node-ar-drone.git#master",
+        "jade": "0.27.x"
     },
-    "engine": "node >= 0.8.x"
+    "engines": {
+        "node": ">=0.8.0",
+        "npm":  "1.1.x"
+    }
 }

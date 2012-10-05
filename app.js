@@ -88,6 +88,9 @@ io.sockets.on('connection', function (socket) {
       if (data == 68 ) {
         console.log("d pushed");
       }
+      if (data == 32 ) {
+        console.log("SPACE pushed");
+      }
     });
 });
 

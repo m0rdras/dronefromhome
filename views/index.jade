@@ -3,11 +3,12 @@ extends layout
 block content
     .row
         .span12
-            img(src="/images/DroneFromHome.png")
+            img(id="logo", src="/images/DroneFromHome.png")
 
     .row
         .span5
-            div(id="imagediv")
+            div(id="viewport")
+                div(id="imagediv")
         .span7
             p
             p
@@ -28,12 +29,39 @@ block append footer
             var imageUrl = "/stream";
 
             $(document).ready(function () {
+                var imagediv = $("#imagediv");
+                var viewport = $("#viewport");
+                var logo = $("#logo");
+
+                // The element we'll make fullscreen and pointer locked.
+                var elem = viewport;
+
+                document.addEventListener("mousemove", function(e) {
+                  var movementX = e.movementX       ||
+                                  e.mozMovementX    ||
+                                  e.webkitMovementX ||
+                                  0,
+                      movementY = e.movementY       ||
+                                  e.mozMovementY    ||
+                                  e.webkitMovementY ||
+                                  0;
+
+                  // Print the mouse movement delta values
+                  console.log("movementX=" + movementX, "movementY=" + movementY);
+                  if (movementX !== 0) {
+                      socket.emit('mouseX', movementX);
+                  }
+                  if (movementY !== 0) {
+                    socket.emit('mouseY', movementY);
+                  }
+                }, false);
+
                 var displayImage = function (base64Data) {
                     var imag = "<img "
                              + "src='" + "data:image/png;base64,"
                              + base64Data + "'/>";
 
-                    $("#imagediv").html(imag)
+                    imagediv.html(imag)
                 };
 
                 var loadImage = function () {
@@ -52,4 +80,55 @@ block append footer
                 };
 
                 setTimeout(loadImage, 1000);
+
+                function fullscreenChange() {
+                  if (document.webkitFullscreenElement === elem ||
+                      document.mozFullscreenElement === elem ||
+                      document.mozFullScreenElement === elem) { // Older API upper case 'S'.
+                    // Element is fullscreen, now we can request pointer lock
+                    elem.requestPointerLock = elem.requestPointerLock    ||
+                                              elem.mozRequestPointerLock ||
+                                              elem.webkitRequestPointerLock;
+                    elem.requestPointerLock();
+                  }
+                }
+
+                document.addEventListener('fullscreenchange', fullscreenChange, false);
+                document.addEventListener('mozfullscreenchange', fullscreenChange, false);
+                document.addEventListener('webkitfullscreenchange', fullscreenChange, false);
+
+                function pointerLockChange() {
+                  if (document.mozPointerLockElement === elem ||
+                      document.webkitPointerLockElement === elem) {
+                    console.log("Pointer Lock was successful.");
+                  } else {
+                    console.log("Pointer Lock was lost.");
+                  }
+                }
+
+                document.addEventListener('pointerlockchange', pointerLockChange, false);
+                document.addEventListener('mozpointerlockchange', pointerLockChange, false);
+                document.addEventListener('webkitpointerlockchange', pointerLockChange, false);
+
+                function pointerLockError() {
+                  console.log("Error while locking pointer.");
+                }
+
+                document.addEventListener('pointerlockerror', pointerLockError, false);
+                document.addEventListener('mozpointerlockerror', pointerLockError, false);
+                document.addEventListener('webkitpointerlockerror', pointerLockError, false);
+
+                function lockPointer() {
+                  elem = document.getElementById("viewport");
+                  // Start by going fullscreen with the element.  Current implementations
+                  // require the element to be in fullscreen before requesting pointer
+                  // lock--something that will likely change in the future.
+                  elem.requestFullscreen = elem.requestFullscreen    ||
+                                           elem.mozRequestFullscreen ||
+                                           elem.mozRequestFullScreen || // Older API upper case 'S'.
+                                           elem.webkitRequestFullscreen;
+                  elem.requestFullscreen();
+                }
+
+                logo.click(lockPointer);
             });

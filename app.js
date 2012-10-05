@@ -103,6 +103,22 @@ io.sockets.on('connection', function (socket) {
             client.down(0.5);
         }
     });
+    socket.on('mouseX', function (data) {
+        console.log('mouse x: ' + data);
+        if (data < 0) {
+            client.clockwise(0.5);
+        } else {
+            client.counterClockwise(0.5);
+        }
+    });
+    socket.on('mouseY', function (data) {
+        console.log('mouse y: ' + data);
+        if (data < 0) {
+            client.up(0.5);
+        } else {
+            client.down(0.5);
+        }
+    });
 });
 
 var application = server.listen(PORT);

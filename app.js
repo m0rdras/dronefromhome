@@ -2,11 +2,14 @@ var express = require('express'),
     arDrone = require('ar-drone'),
     fs = require('fs'),
     path = require('path'),
-    ffmpeg = require('fluent-ffmpeg');
+    ffmpeg = require('fluent-ffmpeg'),
+    http = require('http');
 
 var client = arDrone.createClient();
 
-var app = module.exports = express();
+var app = module.exports = express(),
+    server = http.createServer(app),
+    io = require('socket.io').listen(server);
 
 var PORT = 8088;
 
@@ -64,10 +67,30 @@ app.get('/', function (req, res) {
     res.render('index');
 });
 
-
 app.get('/stream', sendStream);
 
+io.sockets.on('connection', function (socket) {
+    //setInterval(function() {
+    //  console.log("Emitting some heartbeat");
+    //  socket.emit('heartbeat', "test");
+    //}, 1000);
+    socket.on('command', function (data) {
+      console.log(data);
+      if (data == 87 ) {
+        console.log("w pushed");
+      }
+      if (data == 83 ) {
+        console.log("s pushed");
+      }
+      if (data == 65 ) {
+        console.log("a pushed");
+      }
+      if (data == 68 ) {
+        console.log("d pushed");
+      }
+    });
+});
 
-var server = app.listen(PORT);
+var application = server.listen(PORT);
 
 console.log("Express server listening on port %s in %s mode", PORT, app.settings.env);

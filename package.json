@@ -13,7 +13,9 @@
         "express": "3.x.x",
         "ar-drone": "git://github.com/felixge/node-ar-drone.git#master",
         "jade": "0.27.x",
-        "fluent-ffmpeg": "*"
+        "fluent-ffmpeg": "*",
+        "http": "*",
+        "socket.io": ">=0.9.10"
     },
     "engines": {
         "node": ">=0.8.0",

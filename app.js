@@ -1,5 +1,8 @@
 var express = require('express'),
-    arDrone = require('ar-drone');
+    arDrone = require('ar-drone'),
+    fs = require('fs'),
+    path = require('path'),
+    ffmpeg = require('fluent-ffmpeg');
 
 var client = arDrone.createClient();
 
@@ -32,11 +35,37 @@ app.configure('production', function () {
 });
 
 
+function sendStream(req, res) {
+    var filePath = path.join(__dirname, 'demo.webm'),
+        stat = fs.statSync(filePath),
+        readStream;
+
+    console.log('streaming ' + filePath + ' size: ' + stat.size);
+
+    res.set({
+        'Content-Type': 'video/webm',
+        'Content-Length': stat.size
+    });
+
+    readStream = fs.createReadStream(filePath);
+    readStream.on('data', function (data) {
+        res.write(data);
+    });
+
+    readStream.on('end', function () {
+        console.log('input stream finished');
+        res.end();
+    });
+}
+
 
 
 app.get('/', function (req, res) {
     res.render('index');
 });
+
+
+app.get('/stream', sendStream);
 
 
 var server = app.listen(PORT);

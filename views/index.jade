@@ -32,6 +32,7 @@ block append footer
                 var imagediv = $("#imagediv");
                 var viewport = $("#viewport");
                 var logo = $("#logo");
+                var enabled = false;
 
                 // The element we'll make fullscreen and pointer locked.
                 var elem = viewport;
@@ -48,11 +49,13 @@ block append footer
 
                   // Print the mouse movement delta values
                   console.log("movementX=" + movementX, "movementY=" + movementY);
-                  if (movementX !== 0) {
-                      socket.emit('mouseX', movementX);
-                  }
-                  if (movementY !== 0) {
-                    socket.emit('mouseY', movementY);
+                  if (enabled) {
+                      if (movementX !== 0) {
+                          socket.emit('mouseX', movementX);
+                      }
+                      if (movementY !== 0) {
+                        socket.emit('mouseY', movementY);
+                      }
                   }
                 }, false);
 
@@ -101,8 +104,10 @@ block append footer
                   if (document.mozPointerLockElement === elem ||
                       document.webkitPointerLockElement === elem) {
                     console.log("Pointer Lock was successful.");
+                    enabled = true;
                   } else {
                     console.log("Pointer Lock was lost.");
+                    enabled = false;
                   }
                 }
 
@@ -112,6 +117,7 @@ block append footer
 
                 function pointerLockError() {
                   console.log("Error while locking pointer.");
+                  enabled = false;
                 }
 
                 document.addEventListener('pointerlockerror', pointerLockError, false);

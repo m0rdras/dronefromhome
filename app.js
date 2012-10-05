@@ -13,6 +13,9 @@ var app = module.exports = express(),
 
 var PORT = 8088;
 
+var pngStream;
+
+var currentImage = '';
 
 app.configure(function () {
     app.set('views', __dirname + '/views');
@@ -38,18 +41,7 @@ app.configure('production', function () {
 
 
 function sendStream(req, res) {
-    var pngStream = client.createPngStream();
-
-    pngStream.pause = function () {
-    };
-    pngStream.destroy = function () {
-    };
-
-    pngStream.once('data', function (data) {
-        var imgdata = data.toString('base64');
-        console.log('sending image');
-        res.send({ base64image:imgdata });
-    });
+    res.json({ base64image: currentImage });
 }
 
 
@@ -122,5 +114,17 @@ io.sockets.on('connection', function (socket) {
 });
 
 var application = server.listen(PORT);
+pngStream = client.createPngStream();
+
+pngStream.pause = function () {
+};
+pngStream.destroy = function () {
+};
+
+pngStream.on('data', function (data) {
+    currentImage = data.toString('base64');
+    console.log('received image');
+});
+
 
 console.log("Express server listening on port %s in %s mode", PORT, app.settings.env);

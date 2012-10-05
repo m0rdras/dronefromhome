@@ -78,18 +78,27 @@ io.sockets.on('connection', function (socket) {
       console.log(data);
       if (data == 87 ) {
         console.log("w pushed");
+        // forward
       }
       if (data == 83 ) {
         console.log("s pushed");
+        // backwards
       }
       if (data == 65 ) {
         console.log("a pushed");
+        // left
       }
       if (data == 68 ) {
         console.log("d pushed");
+        // right
       }
       if (data == 32 ) {
         console.log("SPACE pushed");
+        // stop
+      }
+      if (data == 16 ) {
+        console.log("SHIFT pushed");
+        // start
       }
     });
 });

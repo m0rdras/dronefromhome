@@ -1,7 +1,7 @@
 {
     "name": "dronefromhome",
     "description": "AR.Drone server",
-    "version": "0.0.1",
+    "version": "0.1.0",
     "author": "Stefan Kirsch <stefan.kirsch@tngtech.com>",
     "contributors": [
         {
@@ -14,7 +14,8 @@
         "ar-drone": "git://github.com/felixge/node-ar-drone.git#master",
         "jade": "0.27.x",
         "http": "*",
-        "socket.io": ">=0.9.10"
+        "buffy": "0.0.4",
+        "ws": "~0.4.22"
     },
     "engines": {
         "node": ">=0.8.0",

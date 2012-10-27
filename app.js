@@ -1,26 +1,22 @@
+'use strict';
+
 var express = require('express'),
     arDrone = require('ar-drone'),
     fs = require('fs'),
     path = require('path'),
-    http = require('http');
-
-var app = module.exports = express(),
+    http = require('http'),
+    Parser = require('./src/PaVEParser.js'),
+    app = express(),
     server = http.createServer(app),
-    io = require('socket.io').listen(server);
+    WebSocketServer = require('ws').Server,
+    wss = new WebSocketServer({server: server});
 
 var PORT = 8088,
     SPEED = 0.5,
+    MOUSE_THRESHOLD = 2,
     CONTROL_TIME = 10;
 
-var currentImage = '';
-
-var client = arDrone.createClient();
-var pngStream = client.createPngStream();
-
-pngStream.on('data', function (data) {
-    currentImage = data.toString('base64');
-    console.log('received image');
-});
+var tcpVideoStream, p, client;
 
 var actionMap = {
     // w
@@ -40,7 +36,9 @@ var actionMap = {
     // q
     81: function () { client.up(SPEED); },
     // e
-    91: function () { client.down(SPEED); }
+    91: function () { client.down(SPEED); },
+    // f
+    70: function () { client.animate('flipLeft', 15); }
 };
 
 var control = {
@@ -75,42 +73,68 @@ app.get('/', function (req, res) {
     res.render('index');
 });
 
-app.get('/stream', function (req, res) {
-    res.json({ base64image: currentImage });
+var handleKey = function (key) {
+    console.log('Got keystroke: ' + key);
+    if (actionMap.hasOwnProperty(key)) {
+        actionMap[key].apply();
+    }
+};
+
+var handleMouseMove = function (x, y) {
+    if (x < -MOUSE_THRESHOLD) {
+        console.log('clockwise');
+        client.clockwise(0.5);
+    } else if (x > MOUSE_THRESHOLD) {
+        console.log('counter-clockwise');
+        client.counterClockwise(0.5);
+    }
+
+    if (y < -MOUSE_THRESHOLD) {
+        console.log('up');
+        client.up(0.5);
+    } else if (y > MOUSE_THRESHOLD) {
+        console.log('down');
+        client.down(0.5);
+    }
+};
+
+var handleClientMessage = function (data, flags) {
+    var msg = JSON.parse(data);
+//    console.log('message received: ' + data);
+
+    switch (msg.type) {
+    case 'key':
+        handleKey(msg.data);
+        break;
+    case 'mouseX':
+        handleMouseMove(msg.data, 0);
+        break;
+    case 'mouseY':
+        handleMouseMove(0, msg.data);
+        break;
+    default:
+        console.log('unknown message type: ' + msg.type);
+    }
+};
+
+wss.on('connection', function (socket) {
+    console.log('client connected');
+
+    tcpVideoStream = new arDrone.Client.PngStream.TcpVideoStream({timeout: 4000});
+    p = new Parser();
+
+    p.on('data', function (data) {
+        socket.send(data, { binary: true });
+    });
+
+    tcpVideoStream.connect(function () {
+        tcpVideoStream.pipe(p);
+    });
+
+    socket.on('message', handleClientMessage);
 });
 
-io.sockets.on('connection', function (socket) {
-    //setInterval(function() {
-    //  console.log("Emitting some heartbeat");
-    //  socket.emit('heartbeat', "test");
-    //}, 1000);
-    socket.on('command', function (data) {
-        console.log('got drone command: ' + data);
-        actionMap[data].apply();
-    });
-
-    socket.on('mouseX', function (data) {
-        console.log('mouse x: ' + data);
-        if (data < 0) {
-            client.clockwise(0.5);
-        } else {
-            client.counterClockwise(0.5);
-        }
-        control.rot = CONTROL_TIME;
-    });
-
-    socket.on('mouseY', function (data) {
-        console.log('mouse y: ' + data);
-
-        if (data < 0) {
-            client.up(0.5);
-        } else {
-            client.down(0.5);
-        }
-        control.z = CONTROL_TIME;
-    });
-});
-
+client = arDrone.createClient();
 var application = server.listen(PORT);
 
 console.log("DroneFromHome server listening on port %s in %s mode", PORT, app.settings.env);

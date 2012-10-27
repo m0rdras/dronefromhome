@@ -29,14 +29,7 @@ html(lang="en")
                 a(href="/") Home
               li(id="nav-about")
                 a(href="/about") About
-    script(type='text/javascript', src='/javascripts/socket.io.js')
-    script(type='text/javascript')
-      var socket = io.connect('http://localhost:8088');
-      document.onkeydown = function(event) {
-        event = event || window.event;
-        var e = event.keyCode;
-        socket.emit('command', e);
-      }
+
     div(class="container")
       block content
       hr
@@ -45,4 +38,4 @@ html(lang="en")
             small
               | &copy; 2012 The DroneFromHome Team -&nbsp;
     block footer
-      script(type='text/javascript', src='/javascripts/jquery-1.8.0.min.js')
+      script(type='text/javascript', src='/javascripts/vendor/jquery-1.8.2.min.js')

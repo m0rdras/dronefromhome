@@ -12,40 +12,57 @@ var express = require('express'),
     wss = new WebSocketServer({server: server});
 
 var PORT = 8088,
-    SPEED = 0.5,
-    MOUSE_THRESHOLD = 2,
-    CONTROL_TIME = 10;
+    VIDEO_TIMEOUT = 4000,
+    SPEED = 0.1,
+    MOUSE_THRESHOLD = 2;
 
-var tcpVideoStream, p, client;
+var client = arDrone.createClient(),
+    paveParser = new Parser(),
+    tcpVideoStream = new arDrone.Client.PngStream.TcpVideoStream({timeout: VIDEO_TIMEOUT});
+
+client.disableEmergency();
 
 var actionMap = {
     // w
-    87: function () { client.front(SPEED); },
+    87: function (state) {
+        if (state) { client.front(SPEED); } else { client.back(SPEED); }
+    },
     // s
-    83: function () { client.back(SPEED); },
+    83: function (state) {
+        if (state) { client.back(SPEED); } else { client.front(SPEED); }
+    },
     // a
-    65: function () { client.left(SPEED); },
+    65: function (state) {
+        if (state) { client.left(SPEED); } else { client.right(SPEED); }
+    },
     // d
-    68: function () { client.right(SPEED); },
+    68: function (state) {
+        if (state) { client.right(SPEED); } else { client.left(SPEED); }
+    },
     // space
-    32: function () { client.land(); },
+    32: function (state) {
+        if (state) { client.land(); }
+    },
     // shift
-    16: function () { client.takeoff(); },
+    16: function (state) {
+        if (state) { client.takeoff(); }
+    },
     // c
-    67: function () { client.stop(); },
+    67: function (state) {
+        client.stop();
+    },
     // q
-    81: function () { client.up(SPEED); },
+    81: function (state) {
+        if (state) { client.up(SPEED); } else { client.down(SPEED); }
+    },
     // e
-    91: function () { client.down(SPEED); },
+    91: function (state) {
+        if (state) { client.down(SPEED); } else { client.up(SPEED); }
+    },
     // f
-    70: function () { client.animate('flipLeft', 15); }
-};
-
-var control = {
-    x: 0,
-    y: 0,
-    z: 0,
-    rot: 0
+    70: function (state) {
+        if (state) { client.animate('flipLeft', 15); }
+    }
 };
 
 app.configure(function () {
@@ -73,10 +90,10 @@ app.get('/', function (req, res) {
     res.render('index');
 });
 
-var handleKey = function (key) {
-    console.log('Got keystroke: ' + key);
+var handleKey = function (key, state) {
+    console.log('Got keystroke: ' + key + ' state: ' + state);
     if (actionMap.hasOwnProperty(key)) {
-        actionMap[key].apply();
+        actionMap[key].apply(this, [ state ]);
     }
 };
 
@@ -100,11 +117,13 @@ var handleMouseMove = function (x, y) {
 
 var handleClientMessage = function (data, flags) {
     var msg = JSON.parse(data);
-//    console.log('message received: ' + data);
 
     switch (msg.type) {
-    case 'key':
-        handleKey(msg.data);
+    case 'keydown':
+        handleKey(msg.data, true);
+        break;
+    case 'keyup':
+        handleKey(msg.data, false);
         break;
     case 'mouseX':
         handleMouseMove(msg.data, 0);
@@ -117,24 +136,39 @@ var handleClientMessage = function (data, flags) {
     }
 };
 
-wss.on('connection', function (socket) {
-    console.log('client connected');
+var connectVideo = function (socket) {
+    paveParser.removeAllListeners();
 
-    tcpVideoStream = new arDrone.Client.PngStream.TcpVideoStream({timeout: 4000});
-    p = new Parser();
-
-    p.on('data', function (data) {
+    paveParser.on('data', function (data) {
         socket.send(data, { binary: true });
     });
 
     tcpVideoStream.connect(function () {
-        tcpVideoStream.pipe(p);
+        tcpVideoStream.pipe(paveParser);
     });
 
+    tcpVideoStream.on('error', function () {
+        connectVideo(socket);
+    });
+};
+
+wss.on('connection', function (socket) {
+    console.log('client connected');
+
+    connectVideo(socket);
+
     socket.on('message', handleClientMessage);
+
+    client.on('navdata', function (navdata) {
+        socket.send(JSON.stringify(navdata.demo));
+    });
 });
 
-client = arDrone.createClient();
+wss.on('close', function () {
+    paveParser.removeAllListeners();
+    client.removeAllListeners();
+});
+
 var application = server.listen(PORT);
 
 console.log("DroneFromHome server listening on port %s in %s mode", PORT, app.settings.env);

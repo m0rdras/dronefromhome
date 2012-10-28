@@ -1,12 +1,13 @@
 /*jshint browser:true */
-/*global Avc:true, YUVWebGLCanvas: true, Size: true, Uint8Array: true, WebSocket: true */
+/*global Avc:true, YUVWebGLCanvas: true, Size: true, Uint8Array: true, WebSocket: true, ArrayBuffer: true, Node: true */
 (function (window, document) {
     'use strict';
     var socket,
         avc,
         canvas,
         webGLCanvas,
-        enabled;
+        enabled,
+        keys = {};
 
 
     function handleDecodedFrame(buffer, width, height) {
@@ -48,9 +49,17 @@
     }
 
     function onKeyDown(event) {
-        event = event || window.event;
-        var e = event.keyCode;
-        socket.send(JSON.stringify({ type: 'key', data: e }));
+        var key = (event || window.event).keyCode;
+        if (!keys.hasOwnProperty(key) || keys[key] === 0) {
+            keys[key] = 1;
+            socket.send(JSON.stringify({ type: 'keydown', data: key }));
+        }
+    }
+
+    function onKeyUp(event) {
+        var key = (event || window.event).keyCode;
+        keys[key] = 0;
+        socket.send(JSON.stringify({ type: 'keyup', data: key }));
     }
 
     function onMouseMove(event) {
@@ -98,12 +107,42 @@
         enabled = false;
     }
 
+    function clearKeys() {
+        var key;
+        for (key in keys) {
+            if (keys.hasOwnProperty(key) && keys[key] === 1) {
+                onKeyUp({ keyCode: key });
+            }
+        }
+    }
+
     function lockPointer() {
         canvas.requestFullscreen = canvas.requestFullscreen    ||
             canvas.mozRequestFullscreen ||
             canvas.mozRequestFullScreen ||
             canvas.webkitRequestFullscreen;
         canvas.requestFullscreen();
+    }
+
+    function handleNavData(msg) {
+        var navData = JSON.parse(msg.data), value, td;
+
+        for (value in navData) {
+            if (navData.hasOwnProperty(value)) {
+                td = document.querySelector('#' + value);
+                if (td instanceof Node) {
+                    td.innerHTML = navData[value];
+                }
+            }
+        }
+    }
+
+    function onServerMessage(msg) {
+        if (msg.data instanceof ArrayBuffer) {
+            handleNalUnits(msg);
+        } else {
+            handleNavData(msg);
+        }
     }
 
     window.DroneFromHome = function (div) {
@@ -116,10 +155,15 @@
                 window.document.location.port
         );
         socket.binaryType = 'arraybuffer';
-        socket.onmessage = handleNalUnits;
+        socket.onmessage = onServerMessage;
 
-        document.addEventListener("keydown", onKeyDown, false);
-        document.addEventListener("mousemove", onMouseMove, false);
+        socket.onopen = function () {
+            document.addEventListener('keydown', onKeyDown, false);
+            document.addEventListener('keyup', onKeyUp, false);
+            document.addEventListener('mousemove', onMouseMove, false);
+        };
+
+        window.onblur = clearKeys;
 
         document.addEventListener('fullscreenchange', onFullscreenChange, false);
         document.addEventListener('mozfullscreenchange', onFullscreenChange, false);
@@ -128,7 +172,6 @@
         document.addEventListener('pointerlockchange', onPointerLockChange, false);
         document.addEventListener('mozpointerlockchange', onPointerLockChange, false);
         document.addEventListener('webkitpointerlockchange', onPointerLockChange, false);
-
 
         document.addEventListener('pointerlockerror', onPointerLockError, false);
         document.addEventListener('mozpointerlockerror', onPointerLockError, false);

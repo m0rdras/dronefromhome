@@ -6,6 +6,7 @@ var express = require('express'),
     path = require('path'),
     http = require('http'),
     Parser = require('./src/PaVEParser.js'),
+    actionMap = require('./src/control.js'),
     app = express(),
     server = http.createServer(app),
     WebSocketServer = require('ws').Server,
@@ -13,57 +14,15 @@ var express = require('express'),
 
 var PORT = 8088,
     VIDEO_TIMEOUT = 4000,
-    SPEED = 0.1,
     MOUSE_THRESHOLD = 2;
 
 var client = arDrone.createClient(),
-    paveParser = new Parser(),
-    tcpVideoStream = new arDrone.Client.PngStream.TcpVideoStream({timeout: VIDEO_TIMEOUT});
+    paveParser,
+    tcpVideoStream;
 
 client.disableEmergency();
-
-var actionMap = {
-    // w
-    87: function (state) {
-        if (state) { client.front(SPEED); } else { client.back(SPEED); }
-    },
-    // s
-    83: function (state) {
-        if (state) { client.back(SPEED); } else { client.front(SPEED); }
-    },
-    // a
-    65: function (state) {
-        if (state) { client.left(SPEED); } else { client.right(SPEED); }
-    },
-    // d
-    68: function (state) {
-        if (state) { client.right(SPEED); } else { client.left(SPEED); }
-    },
-    // space
-    32: function (state) {
-        if (state) { client.land(); }
-    },
-    // shift
-    16: function (state) {
-        if (state) { client.takeoff(); }
-    },
-    // c
-    67: function (state) {
-        client.stop();
-    },
-    // q
-    81: function (state) {
-        if (state) { client.up(SPEED); } else { client.down(SPEED); }
-    },
-    // e
-    91: function (state) {
-        if (state) { client.down(SPEED); } else { client.up(SPEED); }
-    },
-    // f
-    70: function (state) {
-        if (state) { client.animate('flipLeft', 15); }
-    }
-};
+//client.config("video:video_codec", 131);
+client.config('general:navdata_demo', 'FALSE');
 
 app.configure(function () {
     app.set('views', __dirname + '/views');
@@ -93,7 +52,7 @@ app.get('/', function (req, res) {
 var handleKey = function (key, state) {
     console.log('Got keystroke: ' + key + ' state: ' + state);
     if (actionMap.hasOwnProperty(key)) {
-        actionMap[key].apply(this, [ state ]);
+        actionMap[key].apply(this, [ client, state ]);
     }
 };
 
@@ -136,18 +95,37 @@ var handleClientMessage = function (data, flags) {
     }
 };
 
-var connectVideo = function (socket) {
-    paveParser.removeAllListeners();
-
-    paveParser.on('data', function (data) {
-        socket.send(data, { binary: true });
-    });
-
+var connectVideoStream = function () {
     tcpVideoStream.connect(function () {
         tcpVideoStream.pipe(paveParser);
+
+    });
+};
+
+var connectVideo = function (socket) {
+    paveParser = new Parser();
+    tcpVideoStream = new arDrone.Client.PngStream.TcpVideoStream({timeout: VIDEO_TIMEOUT});
+
+    paveParser.on('data', function (data) {
+        try {
+            socket.send(data, { binary: true });
+        } catch (err) {
+            console.log('error while sending video: ' + err);
+        }
     });
 
-    tcpVideoStream.on('error', function () {
+    paveParser.on('error', function (err) {
+        console.log('error while parsing video stream: ' + err);
+        paveParser = new Parser();
+        tcpVideoStream.end();
+        connectVideoStream();
+    });
+
+    connectVideoStream();
+
+    tcpVideoStream.on('error', function (err) {
+        console.log('Error on TCPVideoStream: ' + err);
+        tcpVideoStream.end();
         connectVideo(socket);
     });
 };
@@ -155,19 +133,31 @@ var connectVideo = function (socket) {
 wss.on('connection', function (socket) {
     console.log('client connected');
 
-    connectVideo(socket);
+    client.animateLeds('blinkRed', 5, 2);
+
+    socket.on('error', function (err) {
+        console.log('socket error: ' + err);
+        connectVideo(socket);
+    });
 
     socket.on('message', handleClientMessage);
 
-    client.on('navdata', function (navdata) {
-        socket.send(JSON.stringify(navdata.demo));
+    socket.on('close', function () {
+        paveParser.removeAllListeners();
+        client.removeAllListeners();
     });
+
+    client.on('navdata', function (navdata) {
+        try {
+            socket.send(JSON.stringify(navdata.demo));
+        } catch (err) {
+            console.log('error while sending navdata: ' + err);
+        }
+    });
+
+    connectVideo(socket);
 });
 
-wss.on('close', function () {
-    paveParser.removeAllListeners();
-    client.removeAllListeners();
-});
 
 var application = server.listen(PORT);
 

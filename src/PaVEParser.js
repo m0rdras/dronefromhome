@@ -6,13 +6,11 @@
 // Encapsulation (PaVE), which this class parses.
 'use strict';
 
-var util   = require('util')
-    , Stream = require('stream').Stream
-    , buffy  = require('buffy')
-    ;
+var util = require('util'),
+    Stream = require('stream').Stream,
+    buffy = require('buffy');
 
-module.exports = PaVEParser;
-util.inherits(PaVEParser, Stream);
+
 function PaVEParser() {
     Stream.call(this);
 
@@ -20,74 +18,95 @@ function PaVEParser() {
     this.readable = true;
 
     this._parser = buffy.createReader();
-    this._state  = 'header';
+    this._state = 'header';
     this._toRead = undefined;
     // TODO: search forward in buffer to last I-Frame
     this._frame_type = undefined;
 }
+util.inherits(PaVEParser, Stream);
+
 
 PaVEParser.HEADER_SIZE = 68; // 64 in older firmwares, but doesn't matter.
 
 PaVEParser.prototype.write = function (buffer) {
-    var parser = this._parser
-        , signature
-        , header_size
-        , readable
-        ;
+    var parser = this._parser,
+        signature = '',
+        character = '',
+        header_size,
+        readable;
 
     parser.write(buffer);
 
     while (true) {
         switch (this._state) {
-            case 'header':
-                if (parser.bytesAhead() < PaVEParser.HEADER_SIZE) {
-                    return true;
-                }
-                signature = parser.ascii(4);
+        case 'header':
+            if (parser.bytesAhead() < PaVEParser.HEADER_SIZE) {
+                return true;
+            }
+            signature += parser.ascii(4 - signature.length);
 
-                if (signature !== 'PaVE') {
-                    // TODO: wait/look for next PaVE frame
-                    this.emit('error', new Error(
-                        'Invalid signature: ' + JSON.stringify(signature)
-                    ));
-                    return;
-                }
+            if (signature !== 'PaVE') {
 
-                parser.skip(2);
-                header_size = parser.uint16LE();
-                // payload_size
-                this._toRead = parser.uint32LE();
-                // skip 18 bytes::
-                // encoded_stream_width 2
-                // encoded_stream_height 2
-                // display_width 2
-                // display_height 2
-                // frame_number 4
-                // timestamp 4
-                // total_chunks 1
-                // chunk_index 1
-                parser.skip(18);
-                this._frame_type = parser.uint8();
+                console.log('Unexpected signature in video stream, trying to recover');
 
-                // bytes consumed so far: 4 + 2 + 2 + 4 + 18 + 1 = 31. Skip ahead.
-                parser.skip(header_size - 31);
+                signature = '';
 
-                this._state = 'payload';
-                break;
-
-            case 'payload':
-                readable = parser.bytesAhead();
-                if (readable < this._toRead) {
-                    return true;
+                while (signature.length < 4) {
+                    if (parser.bytesAhead() < 1) {
+                        return true;
+                    }
+                    character = parser.ascii(1);
+                    if (signature + character !== 'PaVE'.substr(0, signature.length + 1)) {
+                        signature = character;
+                    } else {
+                        signature += character;
+                    }
                 }
 
-                // also skip first NAL-Unit boundary: (4)
-                parser.skip(4);
-                this._toRead -= 4;
-                this.sendData(parser.buffer(this._toRead), this._frame_type);
-                this._toRead = undefined;
-                this._state = 'header';
-                break;
+                console.log('Everything fine again, going on');
+            }
+
+            if (parser.bytesAhead() < PaVEParser.HEADER_SIZE - 4) {
+                return true;
+            }
+
+            signature = '';
+
+            parser.skip(2);
+            header_size = parser.uint16LE();
+            // payload_size
+            this._toRead = parser.uint32LE();
+            // skip 18 bytes::
+            // encoded_stream_width 2
+            // encoded_stream_height 2
+            // display_width 2
+            // display_height 2
+            // frame_number 4
+            // timestamp 4
+            // total_chunks 1
+            // chunk_index 1
+            parser.skip(18);
+            this._frame_type = parser.uint8();
+
+            // bytes consumed so far: 4 + 2 + 2 + 4 + 18 + 1 = 31. Skip ahead.
+            parser.skip(header_size - 31);
+
+            this._state = 'payload';
+            break;
+
+        case 'payload':
+            readable = parser.bytesAhead();
+            if (readable < this._toRead) {
+                return true;
+            }
+
+            // also skip first NAL-Unit boundary: (4)
+            parser.skip(4);
+            this._toRead -= 4;
+            this.sendData(parser.buffer(this._toRead), this._frame_type);
+            this._toRead = undefined;
+            this._state = 'header';
+            break;
         }
     }
 };
@@ -121,3 +140,4 @@ PaVEParser.prototype.sendData = function (data, frametype) {
 PaVEParser.prototype.end = function () {
     // nothing to do, just here so pipe() does not complain
 };
+module.exports = PaVEParser;
